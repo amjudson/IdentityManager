@@ -1,0 +1,6 @@
+﻿services:
+  identitymanger:
+    image: identitymanger
+    build:
+      context: .
+      dockerfile: Dockerfile
