@@ -1,16 +1,22 @@
 using IdentityManger.Models;
 using IdentityManger.Models.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using System.Text.Encodings.Web;
 
 namespace IdentityManger.Controllers;
 
+[Authorize]
 public class AccountController(
 	UserManager<ApplicationUser> userManager,
 	SignInManager<ApplicationUser> signInManager,
-	IEmailSender emailSender) : Controller
+	IEmailSender emailSender,
+	UrlEncoder urlEncoder) : Controller
 {
+
+	[AllowAnonymous]
 	public IActionResult Register(string? returnUrl = null)
 	{
 		ViewData["ReturnUrl"] = returnUrl;
@@ -19,6 +25,7 @@ public class AccountController(
 	}
 
 	[HttpPost]
+	[AllowAnonymous]
 	[ValidateAntiForgeryToken]
 	public async Task<IActionResult> Register(RegisterViewModel model, string? returnUrl = null)
 	{
@@ -36,7 +43,6 @@ public class AccountController(
 			var result = await userManager.CreateAsync(user, model.Password);
 			if (result.Succeeded)
 			{
-
 				var code = await userManager.GenerateEmailConfirmationTokenAsync(user);
 				var callbackUrl = Url.Action("ConfirmEmail", "Account", new
 				{
@@ -64,6 +70,7 @@ public class AccountController(
 		return RedirectToAction("Index", "Home");
 	}
 
+	[AllowAnonymous]
 	public IActionResult Login(string? returnUrl = null)
 	{
 		ViewData["ReturnUrl"] = returnUrl;
@@ -71,6 +78,7 @@ public class AccountController(
 	}
 
 	[HttpPost]
+	[AllowAnonymous]
 	[ValidateAntiForgeryToken]
 	public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null)
 	{
@@ -88,6 +96,15 @@ public class AccountController(
 				return LocalRedirect(returnUrl);
 			}
 
+			if (result.RequiresTwoFactor)
+			{
+				return RedirectToAction(nameof(VerifyAuthenticatorCode), new
+				{
+					model.RememberMe,
+					returnUrl
+				});
+			}
+
 			if (result.IsLockedOut)
 			{
 				return View("Lockout");
@@ -99,7 +116,70 @@ public class AccountController(
 		return View(model);
 	}
 
+	[HttpGet]
+	[AllowAnonymous]
+	public async Task<IActionResult> VerifyAuthenticatorCode(bool rememberMe, string returnUrl = null)
+	{
+		var user = await signInManager.GetTwoFactorAuthenticationUserAsync();
+		if (user == null)
+		{
+			return View("Error");
+		}
+
+		ViewData["ReturnUrl"] = returnUrl;
+		return View(new VerifyAuthenticatorViewModel
+		{
+			RememberMe = rememberMe,
+			ReturnUrl = returnUrl,
+		});
+	}
+
 	[HttpPost]
+	[AllowAnonymous]
+	[ValidateAntiForgeryToken]
+	public async Task<IActionResult> VerifyAuthenticatorCode(VerifyAuthenticatorViewModel model)
+	{
+		model.ReturnUrl ??= Url.Content("~/");
+		if (!ModelState.IsValid)
+		{
+			return View(model);
+		}
+
+		var result = await signInManager.TwoFactorAuthenticatorSignInAsync(
+			model.Code,
+			model.RememberMe,
+			rememberClient: false);
+		if (result.Succeeded)
+		{
+			return LocalRedirect(model.ReturnUrl);
+		}
+
+		if (result.IsLockedOut)
+		{
+			return View("Lockout");
+		}
+
+		ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+		return View(model);
+	}
+
+	[HttpGet]
+	public async Task<IActionResult> RemoveAuthenticator()
+	{
+		var user = await userManager.GetUserAsync(User);
+		if (user == null)
+		{
+			return NotFound();
+		}
+
+		await userManager.ResetAuthenticatorKeyAsync(user);
+		await userManager.SetTwoFactorEnabledAsync(user, false);
+
+		return RedirectToAction(nameof(Index), "Home");
+	}
+
+	[HttpPost]
+	[AllowAnonymous]
 	[ValidateAntiForgeryToken]
 	public async Task<IActionResult> ConfirmEmail(string code, string userId)
 	{
@@ -122,12 +202,14 @@ public class AccountController(
 	}
 
 	[HttpGet]
+	[AllowAnonymous]
 	public IActionResult Lockout()
 	{
 		return View();
 	}
 
 	[HttpGet]
+	[AllowAnonymous]
 	public IActionResult ForgotPassword()
 	{
 		return View();
@@ -135,6 +217,7 @@ public class AccountController(
 
 	[HttpPost]
 	[ValidateAntiForgeryToken]
+	[AllowAnonymous]
 	public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model)
 	{
 		if (ModelState.IsValid)
@@ -161,6 +244,7 @@ public class AccountController(
 	}
 
 	[HttpGet]
+	[AllowAnonymous]
 	public IActionResult ForgotPasswordConfirmation()
 	{
 		return View();
@@ -173,6 +257,7 @@ public class AccountController(
 	}
 
 	[HttpPost]
+	[AllowAnonymous]
 	[ValidateAntiForgeryToken]
 	public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model)
 	{
@@ -197,9 +282,72 @@ public class AccountController(
 	}
 
 	[HttpGet]
+	[AllowAnonymous]
 	public IActionResult ResetPasswordConfirmation()
 	{
 		return View();
+	}
+
+	[HttpGet]
+	[AllowAnonymous]
+	public IActionResult AuthenticatorConfirmation()
+	{
+		return View();
+	}
+
+	[HttpGet]
+	[Authorize]
+	public async Task<IActionResult> EnableAuthenticator()
+	{
+		var authenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
+		var user = await userManager.GetUserAsync(User);
+		if (user == null)
+		{
+			return NotFound();
+		}
+
+		await userManager.ResetAuthenticatorKeyAsync(user);
+		var token = await userManager.GetAuthenticatorKeyAsync(user);
+
+		var authUri = string.Format(
+			authenticatorUriFormat,
+			urlEncoder.Encode("IdentityManger"),
+			urlEncoder.Encode(user.Email),
+			token);
+		var model = new TwoFactorAuthenticationViewModel
+		{
+			Token = token,
+			QRCodeUrl = authUri,
+		};
+		return View(model);
+	}
+
+	[HttpPost]
+	[Authorize]
+	[ValidateAntiForgeryToken]
+	public async Task<IActionResult> EnableAuthenticator(TwoFactorAuthenticationViewModel model)
+	{
+		if (ModelState.IsValid)
+		{
+			var user = await userManager.GetUserAsync(User);
+			var succeded = await userManager.VerifyTwoFactorTokenAsync(
+				user,
+				userManager.Options.Tokens.AuthenticatorTokenProvider,
+				model.Code);
+			if (succeded)
+			{
+				await userManager.SetTwoFactorEnabledAsync(user, true);
+			}
+			else
+			{
+				ModelState.AddModelError("Verify", "Your two factor auth code could not be validated.");
+				return View(model);
+			}
+
+			return RedirectToAction(nameof(AuthenticatorConfirmation));
+		}
+
+		return View("Error");
 	}
 
 	private void AddErrors(IdentityResult result)
