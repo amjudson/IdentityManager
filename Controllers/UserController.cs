@@ -3,6 +3,7 @@ using IdentityManger.Models;
 using IdentityManger.Models.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 
 namespace IdentityManger.Controllers;
 
@@ -90,6 +91,47 @@ public class UserController(
 		}
 
 		TempData[AppConstants.NotificationSuccess] = $"Roles assigned successfully to user '{user.Name}'";
+		return RedirectToAction(nameof(Index));
+	}
+
+	[HttpPost]
+	[ValidateAntiForgeryToken]
+	public async Task<IActionResult> LockUnlock(string userId)
+	{
+		var user = await db.ApplicationUsers.FirstOrDefaultAsync(u => u.Id == userId);
+		if (user == null)
+		{
+			return NotFound();
+		}
+
+		if (user.LockoutEnd != null && user.LockoutEnd > DateTime.Now)
+		{
+			user.LockoutEnd = DateTime.Now;
+			TempData[AppConstants.NotificationSuccess] = $"User '{user.Name}' unlocked successfully";
+		}
+		else
+		{
+			user.LockoutEnd = DateTime.Now.AddYears(100);
+			TempData[AppConstants.NotificationSuccess] = $"User '{user.Name}' locked successfully";
+		}
+
+		await db.SaveChangesAsync();
+		return RedirectToAction(nameof(Index));
+	}
+
+	[HttpPost]
+	[ValidateAntiForgeryToken]
+	public async Task<IActionResult> DeleteUser(string userId)
+	{
+		var user = await db.ApplicationUsers.FirstOrDefaultAsync(u => u.Id == userId);
+		if (user == null)
+		{
+			return NotFound();
+		}
+
+		db.ApplicationUsers.Remove(user);
+		await db.SaveChangesAsync();
+		TempData[AppConstants.NotificationSuccess] = $"User '{user.Name}' deleted successfully";
 		return RedirectToAction(nameof(Index));
 	}
 }
