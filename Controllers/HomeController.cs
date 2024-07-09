@@ -25,7 +25,7 @@ public class HomeController(ILogger<HomeController> logger, UserManager<Applicat
 		return View();
 	}
 
-	[Authorize]
+	[Authorize(Roles = AppConstants.RoleAdmin)]
 	public IActionResult Privacy()
 	{
 		return View();

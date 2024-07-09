@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc.Rendering;
 using System.Text.Encodings.Web;
 
 namespace IdentityManger.Controllers;
@@ -11,16 +12,30 @@ namespace IdentityManger.Controllers;
 [Authorize]
 public class AccountController(
 	UserManager<ApplicationUser> userManager,
+	RoleManager<IdentityRole> roleManager,
 	SignInManager<ApplicationUser> signInManager,
 	IEmailSender emailSender,
 	UrlEncoder urlEncoder) : Controller
 {
 
 	[AllowAnonymous]
-	public IActionResult Register(string? returnUrl = null)
+	public async Task<IActionResult> Register(string? returnUrl = null)
 	{
+		if (!await roleManager.RoleExistsAsync(AppConstants.RoleAdmin))
+		{
+			await roleManager.CreateAsync(new IdentityRole(AppConstants.RoleAdmin));
+			await roleManager.CreateAsync(new IdentityRole(AppConstants.RoleUser));
+		}
+
 		ViewData["ReturnUrl"] = returnUrl;
-		var registerViewModel = new RegisterViewModel();
+		var registerViewModel = new RegisterViewModel
+		{
+			RoleList = roleManager.Roles.Select(x => x.Name).Select(x => new SelectListItem
+			{
+				Text = x,
+				Value = x
+			}),
+		};
 		return View(registerViewModel);
 	}
 
@@ -43,6 +58,15 @@ public class AccountController(
 			var result = await userManager.CreateAsync(user, model.Password);
 			if (result.Succeeded)
 			{
+				if (model.RoleSelected != null && model.RoleSelected.Length > 0 && model.RoleSelected == AppConstants.RoleAdmin)
+				{
+					await userManager.AddToRoleAsync(user, AppConstants.RoleAdmin);
+				}
+				else
+				{
+					await userManager.AddToRoleAsync(user, AppConstants.RoleUser);
+				}
+
 				var code = await userManager.GenerateEmailConfirmationTokenAsync(user);
 				var callbackUrl = Url.Action("ConfirmEmail", "Account", new
 				{
@@ -58,6 +82,12 @@ public class AccountController(
 
 			AddErrors(result);
 		}
+
+		model.RoleList = roleManager.Roles.Select(x => x.Name).Select(x => new SelectListItem
+		{
+			Text = x,
+			Value = x
+		});
 
 		return View(model);
 	}
@@ -204,6 +234,13 @@ public class AccountController(
 	[HttpGet]
 	[AllowAnonymous]
 	public IActionResult Lockout()
+	{
+		return View();
+	}
+
+	[HttpGet]
+	[AllowAnonymous]
+	public IActionResult NoAccess()
 	{
 		return View();
 	}

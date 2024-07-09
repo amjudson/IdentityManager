@@ -18,6 +18,11 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
 
+builder.Services.ConfigureApplicationCookie(o =>
+{
+	o.AccessDeniedPath = "/Account/NoAccess";
+});
+
 builder.Services.Configure<IdentityOptions>(o =>
 {
 	o.Password.RequireDigit = false;
