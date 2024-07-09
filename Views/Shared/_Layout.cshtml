@@ -6,6 +6,7 @@
   <title>@ViewData["Title"] - IdentityManger</title>
   <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css"/>
   <link rel="stylesheet" href="~/css/site.css" asp-append-version="true"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.css" integrity="sha512-3pIirOrwegjM6erE5gPSwkUzO+3cTjpnV9lexlNZqvupR64iZBnOOTiiLPb9M36zpMScbmUNIcHUqKD47M719g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
   <link rel="stylesheet" href="~/IdentityManger.styles.css" asp-append-version="true"/>
 </head>
 <body>
@@ -25,6 +26,12 @@
           <li class="nav-item">
             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link text-dark" asp-area="" asp-controller="User" asp-action="Index">Users</a>
+          </li>
+          <li class="nav-item">
+            <a class="nav-link text-dark" asp-area="" asp-controller="Role" asp-action="Index">Roles</a>
+          </li>
         </ul>
         <partial name="_LoginPartialCustom"/>
       </div>
@@ -33,6 +40,7 @@
 </header>
 <div class="container">
   <main role="main" class="pb-3">
+    <partial name="_Notifications"/>
     @RenderBody()
   </main>
 </div>
