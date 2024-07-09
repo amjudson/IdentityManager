@@ -20,5 +20,14 @@
     <br/>
   }
 
+  @if (User.IsInRole(AppConstants.RoleAdmin))
+  {
+    <h2 class="text-success">You role is - Admin</h2>
+  }
+  else if (User.IsInRole(AppConstants.RoleUser))
+  {
+    <h3 class="text-success">You role is - User</h3>
+  }
+
   <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
 </div>
