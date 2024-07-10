@@ -12,5 +12,7 @@ public class ApplicationUser : IdentityUser
 	public string RoleId { get; set; }
 
 	[NotMapped]
-	public string Role { get; set; }
+	public string Roles { get; set; }
+	[NotMapped]
+	public string UserClaims { get; set; }
 }

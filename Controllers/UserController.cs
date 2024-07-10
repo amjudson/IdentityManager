@@ -4,6 +4,7 @@ using IdentityManger.Models.ViewModels;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
 
 namespace IdentityManger.Controllers;
 
@@ -13,22 +14,18 @@ public class UserController(
 	RoleManager<IdentityRole> roleManager) : Controller
 {
 	// GET: UserController
-	public ActionResult Index()
+	public async Task<ActionResult> Index()
 	{
 		var userList = db.ApplicationUsers.ToList();
 		var userRoles = db.UserRoles.ToList();
 		var roles = db.Roles.ToList();
 		foreach (var user in userList)
 		{
-			var userRole = userRoles.FirstOrDefault(x => x.UserId == user.Id);
-			if (userRole == null)
-			{
-				user.Role = "none";
-			}
-			else
-			{
-				user.Role = roles.FirstOrDefault(x => x.Id == userRole.RoleId).Name;
-			}
+			var userRole = await userManager.GetRolesAsync(user);
+			user.Roles = string.Join(",", userRole);
+			var claims = userManager.GetClaimsAsync(user).GetAwaiter().GetResult().Select(c => c.Type);
+			user.UserClaims = string.Join(",", claims);
+
 		}
 
 		return View(userList);
@@ -91,6 +88,68 @@ public class UserController(
 		}
 
 		TempData[AppConstants.NotificationSuccess] = $"Roles assigned successfully to user '{user.Name}'";
+		return RedirectToAction(nameof(Index));
+	}
+
+	public async Task<IActionResult> ManageUserClaim(string userId)
+	{
+		var user = await userManager.FindByIdAsync(userId);
+		if (user == null)
+		{
+			return NotFound();
+		}
+
+		var existingUserClaims = await userManager.GetClaimsAsync(user);
+		var model = new ClaimsViewModel
+		{
+			User = user,
+		};
+
+		foreach (var claim in ClaimStore.ClaimsList)
+		{
+			var claimSelection = new ClaimSelection
+			{
+				ClaimType = claim.Type,
+				IsSelected = existingUserClaims.Any(r => r.Type == claim.Type),
+			};
+
+			model.ClaimsList.Add(claimSelection);
+		}
+
+		return View(model);
+	}
+
+	[HttpPost]
+	[ValidateAntiForgeryToken]
+	public async Task<IActionResult> ManageUserClaim(ClaimsViewModel claimsViewModel)
+	{
+		var user = await userManager.FindByIdAsync(claimsViewModel.User.Id);
+		if (user == null)
+		{
+			return NotFound();
+		}
+
+		var oldUserClaims = await userManager.GetClaimsAsync(user);
+		var result = await userManager.RemoveClaimsAsync(user, oldUserClaims);
+		if (!result.Succeeded)
+		{
+			TempData[AppConstants.NotificationError] = $"Failed to remove existing claims for user '{user.Name}'";
+			return View(claimsViewModel);
+		}
+
+		result = await userManager.AddClaimsAsync(
+			user,
+			claimsViewModel.ClaimsList
+				.Where(x => x.IsSelected)
+				.Select(x => new Claim(x.ClaimType, x.IsSelected.ToString())));
+
+		if (!result.Succeeded)
+		{
+			TempData[AppConstants.NotificationError] = $"Error adding claims to user '{user.Name}'";
+			return View(claimsViewModel);
+		}
+
+		TempData[AppConstants.NotificationSuccess] = $"Claims assigned successfully to user '{user.Name}'";
 		return RedirectToAction(nameof(Index));
 	}
 
