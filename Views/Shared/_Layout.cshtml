@@ -6,7 +6,7 @@
   <title>@ViewData["Title"] - IdentityManger</title>
   <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css"/>
   <link rel="stylesheet" href="~/css/site.css" asp-append-version="true"/>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.css" integrity="sha512-3pIirOrwegjM6erE5gPSwkUzO+3cTjpnV9lexlNZqvupR64iZBnOOTiiLPb9M36zpMScbmUNIcHUqKD47M719g==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/latest/toastr.css" integrity="sha512-3pIirOrwegjM6erE5gPSwkUzO+3cTjpnV9lexlNZqvupR64iZBnOOTiiLPb9M36zpMScbmUNIcHUqKD47M719g==" crossorigin="anonymous" referrerpolicy="no-referrer"/>
   <link rel="stylesheet" href="~/IdentityManger.styles.css" asp-append-version="true"/>
 </head>
 <body>
@@ -31,6 +31,37 @@
           </li>
           <li class="nav-item">
             <a class="nav-link text-dark" asp-area="" asp-controller="Role" asp-action="Index">Roles</a>
+          </li>
+          <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+              Access Checker
+            </a>
+            <ul class="dropdown-menu">
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="AllAccess">All Access</a>
+              </li>
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="AuthorizedAccess">Authorized Access</a>
+              </li>
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="AdminRoleAccess">Admin Role Access</a>
+              </li>
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="UserOrAdminRoleAccess"> User OR Admin Role Access</a>
+              </li>
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="UserAndAdminRoleAccess"> User AND Admin Role Access</a>
+              </li>
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="AdminCreateAccess">Admin Role - Create Claim Access</a>
+              </li>
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="AdminCreateEditDeleteAccess">Admin Role - Create & Edit & Delete Claim Access</a>
+              </li>
+              <li>
+                <a class="dropdown-item" asp-controller="AccessChecker" asp-action="OnlyBhrugen">Only Bhrugen</a>
+              </li>
+            </ul>
           </li>
         </ul>
         <partial name="_LoginPartialCustom"/>

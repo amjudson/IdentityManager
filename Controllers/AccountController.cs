@@ -58,9 +58,9 @@ public class AccountController(
 			var result = await userManager.CreateAsync(user, model.Password);
 			if (result.Succeeded)
 			{
-				if (model.RoleSelected != null && model.RoleSelected.Length > 0 && model.RoleSelected == AppConstants.RoleAdmin)
+				if (model.RoleSelected != null)
 				{
-					await userManager.AddToRoleAsync(user, AppConstants.RoleAdmin);
+					await userManager.AddToRoleAsync(user, model.RoleSelected);
 				}
 				else
 				{

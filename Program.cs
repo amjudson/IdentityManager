@@ -1,3 +1,4 @@
+using IdentityManger;
 using IdentityManger.Data;
 using IdentityManger.Models;
 using IdentityManger.Services;
@@ -33,6 +34,31 @@ builder.Services.Configure<IdentityOptions>(o =>
 	o.Lockout.MaxFailedAccessAttempts = 3;
 	o.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
 	o.SignIn.RequireConfirmedEmail = false;
+});
+
+builder.Services.AddAuthorization(options =>
+{
+	options.AddPolicy(AppConstants.RoleAdmin, policy =>
+	{
+		policy.RequireRole(AppConstants.RoleAdmin);
+	});
+	options.AddPolicy("AdminAndUser", policy =>
+	{
+		policy.RequireRole(AppConstants.RoleAdmin)
+			.RequireRole(AppConstants.RoleUser);
+	});
+	options.AddPolicy("Admin_CreateClaim", policy =>
+	{
+		policy.RequireRole(AppConstants.RoleAdmin);
+		policy.RequireClaim(AppConstants.ClaimCreate, "True");
+	});
+	options.AddPolicy("Admin_CreateEditDeleteClaim", policy =>
+	{
+		policy.RequireRole(AppConstants.RoleAdmin)
+			.RequireClaim(AppConstants.ClaimCreate, "True")
+			.RequireClaim(AppConstants.ClaimEdit, "True")
+			.RequireClaim(AppConstants.ClaimDelete, "True");
+	});
 });
 
 var app = builder.Build();

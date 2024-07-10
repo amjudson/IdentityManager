@@ -17,7 +17,8 @@
         <tr class="table-secondary">
           <th>Email</th>
           <th>Name</th>
-          <th>Role</th>
+          <th>Roles</th>
+          <th>Claims</th>
           <th></th>
         </tr>
         @foreach (var item in Model)
@@ -25,12 +26,18 @@
           <tr>
             <td>@item.Email</td>
             <td>@item.Name</td>
-            <td>@item.Role</td>
+            <td>@item.Roles</td>
+            <td>@item.UserClaims</td>
             <td style="width: 450px">
               <div class="row">
                 <div class="col-3">
                   <a asp-action="ManageRole" asp-route-userId="@item.Id" class="btn btn-primary w-100" style="cursor: pointer">
                     Roles
+                  </a>
+                </div>
+                <div class="col-3">
+                  <a asp-action="ManageUserClaim" asp-route-userId="@item.Id" class="btn btn-primary w-100" style="cursor: pointer">
+                    Claims
                   </a>
                 </div>
                 <div class="col-3">
@@ -43,7 +50,7 @@
                   else
                   {
                     <form asp-action="LockUnlock" asp-route-userId="@item.Id">
-                      <input type="submit" class="btn btn-warning w-100" style="cursor: pointer" value="Unlock"/>
+                      <input type="submit" class="btn btn-info w-100" style="cursor: pointer" value="Unlock"/>
                     </form>
                   }
                 </div>
