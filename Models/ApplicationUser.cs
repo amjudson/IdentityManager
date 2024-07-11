@@ -7,6 +7,7 @@ public class ApplicationUser : IdentityUser
 {
 	[Required]
 	public string Name { get; set; }
+	public DateTime DateCreated { get; set; }
 
 	[NotMapped]
 	public string RoleId { get; set; }

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
+using System.Security.Claims;
 using System.Text.Encodings.Web;
 
 namespace IdentityManger.Controllers;
@@ -53,6 +54,7 @@ public class AccountController(
 				UserName = model.Email,
 				Email = model.Email,
 				Name = model.Name,
+				DateCreated = DateTime.Now,
 			};
 
 			var result = await userManager.CreateAsync(user, model.Password);
@@ -123,6 +125,15 @@ public class AccountController(
 				lockoutOnFailure: true);
 			if (result.Succeeded)
 			{
+				var user = await userManager.GetUserAsync(User);
+				var claims = await userManager.GetClaimsAsync(user);
+				if (claims.Count > 0)
+				{
+					await userManager.RemoveClaimAsync(user, claims.FirstOrDefault(u => u.Type == "FirstName"));
+				}
+
+				await userManager.AddClaimAsync(user, new Claim("FirstName", user.Name));
+
 				return LocalRedirect(returnUrl);
 			}
 
@@ -385,6 +396,106 @@ public class AccountController(
 		}
 
 		return View("Error");
+	}
+
+	[HttpPost]
+	[AllowAnonymous]
+	[ValidateAntiForgeryToken]
+	public IActionResult ExternalLogin(string provider, string? returnUrl = null)
+	{
+		var redirectUrl = Url.Action("ExternalLoginCallback", "Account", new { returnUrl });
+		var properties = signInManager.ConfigureExternalAuthenticationProperties(provider, redirectUrl);
+		return Challenge(properties, provider);
+	}
+
+	[HttpGet]
+	[AllowAnonymous]
+	public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null)
+	{
+		returnUrl = returnUrl ?? Url.Content("~/");
+		if (remoteError != null)
+		{
+			ModelState.AddModelError(string.Empty, $"Error from external provider: {remoteError}");
+			return View(nameof(Login));
+		}
+
+		var info = await signInManager.GetExternalLoginInfoAsync();
+		if (info == null)
+		{
+			return RedirectToAction(nameof(Login));
+		}
+
+		var result = await signInManager.ExternalLoginSignInAsync(
+			info.LoginProvider,
+			info.ProviderKey,
+			isPersistent: false,
+			bypassTwoFactor: true);
+
+		if (result.Succeeded)
+		{
+			await signInManager.UpdateExternalAuthenticationTokensAsync(info);
+			return LocalRedirect(returnUrl);
+		}
+
+		if (result.RequiresTwoFactor)
+		{
+			return RedirectToAction(nameof(VerifyAuthenticatorCode), new
+			{
+				returnUrl
+			});
+		}
+
+		ViewData["ReturnUrl"] = returnUrl;
+		ViewData["ProviderDisplayName"] = info.ProviderDisplayName;
+		return View("ExternalLoginConfirmation", new ExternalLoginConfirmationViewModel
+		{
+			Email = info.Principal.FindFirstValue(ClaimTypes.Email),
+			Name = info.Principal.FindFirstValue(ClaimTypes.Name),
+		});
+	}
+
+	[HttpPost]
+	[ValidateAntiForgeryToken]
+	[AllowAnonymous]
+	public async Task<IActionResult> ExternalLoginConfirmation(ExternalLoginConfirmationViewModel model, string? returnUrl = null)
+	{
+		returnUrl = returnUrl ?? Url.Content("~/");
+		if (ModelState.IsValid)
+		{
+			var info = await signInManager.GetExternalLoginInfoAsync();
+			if (info == null)
+			{
+				return View("Error");
+			}
+
+			var user = new ApplicationUser
+			{
+				UserName = model.Email,
+				Email = model.Email,
+				Name = model.Name,
+				NormalizedEmail = model.Email.ToUpper(),
+				DateCreated = DateTime.Now,
+			};
+
+			var result = await userManager.CreateAsync(user);
+			if (result.Succeeded)
+			{
+				await userManager.AddToRoleAsync(user, AppConstants.RoleUser);
+				result = await userManager.AddLoginAsync(user, info);
+
+				if (result.Succeeded)
+				{
+					await signInManager.SignInAsync(user, isPersistent: false);
+					await signInManager.UpdateExternalAuthenticationTokensAsync(info);
+					return LocalRedirect(returnUrl);
+				}
+			}
+
+			AddErrors(result);
+		}
+
+		ViewData["ReturnUrl"] = returnUrl;
+		return View(model);
 	}
 
 	private void AddErrors(IdentityResult result)

@@ -53,4 +53,23 @@ public class AccessCheckerController : Controller
 	{
 		return View();
 	}
+
+	// Only users with the Admin and (Create & Edit & Delete) Claim can access this
+	[Authorize(Policy = "Admin_CreateEditDeleteClaim_ORSuperAdmin")]
+	public ActionResult AdminCreateEditDeleteOrSuperAdminAccess()
+	{
+		return View();
+	}
+
+	[Authorize(Policy = "AdminWithMore1000Days")]
+	public IActionResult OnlyAdmin1000()
+	{
+		return View();
+	}
+
+	[Authorize(Policy = "FirstNameAuth")]
+	public IActionResult FirstNameAuth()
+	{
+		return View();
+	}
 }
