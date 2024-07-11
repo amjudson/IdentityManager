@@ -1,7 +1,10 @@
 using IdentityManger;
+using IdentityManger.Authorize;
 using IdentityManger.Data;
 using IdentityManger.Models;
 using IdentityManger.Services;
+using IdentityManger.Services.IServices;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +21,9 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
 	.AddDefaultTokenProviders();
 
 builder.Services.AddTransient<IEmailSender, EmailSender>();
+builder.Services.AddScoped<INumberOfDaysForAccount, NumberOfDaysForAccount>();
+builder.Services.AddScoped<IAuthorizationHandler, AdminWithOver1000DaysHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, FirstNameClaimAuthHandler>();
 
 builder.Services.ConfigureApplicationCookie(o =>
 {
@@ -38,10 +44,7 @@ builder.Services.Configure<IdentityOptions>(o =>
 
 builder.Services.AddAuthorization(options =>
 {
-	options.AddPolicy(AppConstants.RoleAdmin, policy =>
-	{
-		policy.RequireRole(AppConstants.RoleAdmin);
-	});
+	options.AddPolicy(AppConstants.RoleAdmin, policy => { policy.RequireRole(AppConstants.RoleAdmin); });
 	options.AddPolicy("AdminAndUser", policy =>
 	{
 		policy.RequireRole(AppConstants.RoleAdmin)
@@ -59,6 +62,39 @@ builder.Services.AddAuthorization(options =>
 			.RequireClaim(AppConstants.ClaimEdit, "True")
 			.RequireClaim(AppConstants.ClaimDelete, "True");
 	});
+	options.AddPolicy("Admin_CreateEditDeleteClaim_ORSuperAdmin", policy =>
+	{
+		policy.RequireAssertion(context => (
+			                                   context.User.IsInRole(AppConstants.RoleAdmin)
+			                                   && context.User.HasClaim(AppConstants.ClaimCreate, "True")
+			                                   && context.User.HasClaim(AppConstants.ClaimEdit, "True")
+			                                   && context.User.HasClaim(AppConstants.ClaimDelete, "True"))
+		                                   || context.User.IsInRole(AppConstants.RoleSuperAdmin));
+	});
+	options.AddPolicy("OnlySuperAdminChecker", policy =>
+	{
+		policy.Requirements.Add(new OnlySuperAdminChecker());
+	});
+	options.AddPolicy("AdminWithMore1000Days", policy =>
+	{
+		policy.Requirements.Add(new AdminWithMore1000DaysRequirement(1000));
+	});
+	options.AddPolicy("FirstNameAuth", policy =>
+	{
+		policy.Requirements.Add(new FirstNameClaimAuthRequirement("admin"));
+	});
+});
+
+builder.Services.AddAuthentication().AddMicrosoftAccount(opt =>
+{
+	opt.ClientId = builder.Configuration["SSOAuthentication:MS_ClientId"] ?? "ClientId";
+	opt.ClientSecret = builder.Configuration["SSOAuthentication:MS_ClientSecret"] ?? "ClientSecret";
+});
+
+builder.Services.AddAuthentication().AddFacebook(opt =>
+{
+	opt.ClientId = builder.Configuration["SSOAuthentication:FB_ClientId"] ?? "ClientId";
+	opt.ClientSecret = builder.Configuration["SSOAuthentication:FB_ClientSecret"] ?? "ClientSecret";
 });
 
 var app = builder.Build();
